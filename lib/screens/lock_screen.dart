@@ -55,7 +55,7 @@ class _LockGateState extends State<LockGate> with WidgetsBindingObserver {
       }
       final ok = await _auth.authenticate(
         localizedReason: '우리끼리를 열려면 본인 확인이 필요합니다',
-        options: const AuthenticationOptions(stickyAuth: true),
+        persistAcrossBackgrounding: true,
       );
       if (ok) setState(() => _locked = false);
     } catch (_) {
