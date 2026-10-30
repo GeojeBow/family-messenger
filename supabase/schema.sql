@@ -2,13 +2,17 @@
 -- Run once in the Supabase SQL editor. Safe to re-run: it drops and rebuilds
 -- the app's tables (all messages are deleted).
 --
--- There is no sign-up. Accounts are created by supabase/accounts.sql, every
--- member can talk to every other member, and nobody else can see anything.
+-- There is no sign-up. The admin creates the accounts in the Supabase
+-- dashboard (Authentication -> Users -> Add user) as <username>@users.urikkiri.app,
+-- and a trigger turns the allowed usernames below into family members. Every
+-- member can talk to every other member; nobody else can see anything.
 -- The server only ever stores ciphertext.
 
 -- ---------------------------------------------------------------------------
 -- Reset (also removes objects from the earlier invite-based version)
 -- ---------------------------------------------------------------------------
+drop trigger if exists on_auth_user_created on auth.users;
+drop function if exists public.handle_new_user();
 drop table if exists public.messages cascade;
 drop table if exists public.contacts cascade;
 drop table if exists public.invites cascade;
@@ -70,6 +74,42 @@ $$;
 revoke all on function public.is_member, public.mark_read from public, anon;
 grant execute on function public.is_member, public.mark_read to authenticated;
 
+-- Only these usernames can ever become family members.
+create or replace function public.handle_new_user()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  v_username text := split_part(new.email, '@', 1);
+  v_name text;
+begin
+  if split_part(new.email, '@', 2) <> 'users.urikkiri.app' then return new; end if;
+  v_name := case v_username
+    when 'harry' then '해리'
+    when 'family2' then '가족2'
+    when 'family3' then '가족3'
+    when 'family4' then '가족4'
+  end;
+  if v_name is not null then
+    insert into profiles (id, username, display_name) values (new.id, v_username, v_name)
+    on conflict do nothing;
+  end if;
+  return new;
+end $$;
+
+create trigger on_auth_user_created
+  after insert on auth.users for each row execute function public.handle_new_user();
+
+-- Accounts that already exist (e.g. created before this script ran).
+insert into public.profiles (id, username, display_name)
+select distinct on (split_part(u.email, '@', 1)) u.id, split_part(u.email, '@', 1),
+  case split_part(u.email, '@', 1)
+    when 'harry' then '해리' when 'family2' then '가족2'
+    when 'family3' then '가족3' when 'family4' then '가족4' end
+from auth.users u
+where split_part(u.email, '@', 2) = 'users.urikkiri.app'
+  and split_part(u.email, '@', 1) in ('harry', 'family2', 'family3', 'family4')
+order by split_part(u.email, '@', 1), u.created_at desc
+on conflict do nothing;
+
 -- ---------------------------------------------------------------------------
 -- Row level security
 -- ---------------------------------------------------------------------------
@@ -103,3 +143,5 @@ revoke all on public.profiles, public.messages from anon;
 -- Realtime
 -- ---------------------------------------------------------------------------
 alter publication supabase_realtime add table public.messages, public.profiles;
+
+select 'OK: 우리끼리 설정 완료' as result;

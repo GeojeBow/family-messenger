@@ -10,7 +10,9 @@
 ## 서버 설정 (한 번만)
 
 1. Supabase 대시보드 → SQL Editor에서 `supabase/schema.sql` 전체를 실행합니다. (다시 실행하면 모든 메시지가 지워집니다.)
-2. `supabase/accounts.example.sql`을 복사해 비밀번호를 바꾼 뒤 실행합니다. 비밀번호가 들어간 파일은 절대 커밋하지 마세요.
+2. Authentication → Users → **Add user → Create new user**로 계정을 만듭니다.
+   이메일은 `harry@users.urikkiri.app`, `family2@users.urikkiri.app`, `family3@…`, `family4@…` 형식이고, **Auto Confirm User**를 켭니다.
+   이 네 아이디만 가족으로 등록되며, 다른 아이디는 만들어져도 아무것도 볼 수 없습니다.
 3. Authentication → Sign In / Providers에서 **Allow new users to sign up**을 끕니다.
 
 ## 빌드와 배포
