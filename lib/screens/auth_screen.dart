@@ -24,7 +24,7 @@ class _AuthScreenState extends State<AuthScreen> {
     try {
       final state = AppState.instance;
       final username = _username.text.trim().toLowerCase();
-      await state.signIn(username, _password.text);
+      await state.signIn(username, _password.text.trim());
     } catch (e) {
       setState(() => _error = _friendly(e));
     } finally {
