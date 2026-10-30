@@ -28,7 +28,8 @@ class E2E {
   }) async {
     final contentKey = await _aead.newSecretKey();
     final contentKeyBytes = await contentKey.extractBytes();
-    final box = await _aead.encrypt(utf8.encode(plaintext), secretKey: contentKey);
+    final box =
+        await _aead.encrypt(utf8.encode(plaintext), secretKey: contentKey);
     final body = base64Encode(box.concatenation());
     final forRecipient = await _wrap(contentKeyBytes, recipientDhPublic);
     final forSender = await _wrap(contentKeyBytes, senderDhPublic);
@@ -54,21 +55,25 @@ class E2E {
     required List<int> senderSignPublic,
   }) async {
     final ok = await _ed25519.verify(
-      _signedBytes(senderId, recipientId, envelope.body, envelope.keyForRecipient,
-          envelope.keyForSender),
+      _signedBytes(senderId, recipientId, envelope.body,
+          envelope.keyForRecipient, envelope.keyForSender),
       signature: Signature(base64Decode(envelope.signature),
-          publicKey: SimplePublicKey(senderSignPublic, type: KeyPairType.ed25519)),
+          publicKey:
+              SimplePublicKey(senderSignPublic, type: KeyPairType.ed25519)),
     );
     if (!ok) throw const E2EException('서명이 올바르지 않습니다');
     final keyBytes = await _unwrap(
-        iAmSender ? envelope.keyForSender : envelope.keyForRecipient, myDhKeyPair);
+        iAmSender ? envelope.keyForSender : envelope.keyForRecipient,
+        myDhKeyPair);
     final box = SecretBox.fromConcatenation(base64Decode(envelope.body),
-        nonceLength: _aead.nonceLength, macLength: _aead.macAlgorithm.macLength);
+        nonceLength: _aead.nonceLength,
+        macLength: _aead.macAlgorithm.macLength);
     final clear = await _aead.decrypt(box, secretKey: SecretKey(keyBytes));
     return utf8.decode(clear);
   }
 
-  static Future<String> _wrap(List<int> contentKey, List<int> theirPublic) async {
+  static Future<String> _wrap(
+      List<int> contentKey, List<int> theirPublic) async {
     final eph = await _x25519.newKeyPair();
     final ephPub = (await eph.extractPublicKey()).bytes;
     final kek = await _kek(eph, theirPublic, ephPub, theirPublic);
@@ -82,7 +87,8 @@ class E2E {
     final myPub = (await mine.extractPublicKey()).bytes;
     final kek = await _kek(mine, ephPub, ephPub, myPub);
     final box = SecretBox.fromConcatenation(raw.sublist(32),
-        nonceLength: _aead.nonceLength, macLength: _aead.macAlgorithm.macLength);
+        nonceLength: _aead.nonceLength,
+        macLength: _aead.macAlgorithm.macLength);
     return _aead.decrypt(box, secretKey: kek);
   }
 
@@ -90,7 +96,8 @@ class E2E {
       List<int> ephPub, List<int> recipientPub) async {
     final shared = await _x25519.sharedSecretKey(
         keyPair: mine,
-        remotePublicKey: SimplePublicKey(theirPublic, type: KeyPairType.x25519));
+        remotePublicKey:
+            SimplePublicKey(theirPublic, type: KeyPairType.x25519));
     return _hkdf.deriveKey(
       secretKey: shared,
       nonce: [...ephPub, ...recipientPub],
@@ -98,16 +105,23 @@ class E2E {
     );
   }
 
-  static List<int> _signedBytes(String senderId, String recipientId, String body,
-          String keyForRecipient, String keyForSender) =>
-      utf8.encode(
-          ['v1', senderId, recipientId, body, keyForRecipient, keyForSender].join('|'));
+  static List<int> _signedBytes(String senderId, String recipientId,
+          String body, String keyForRecipient, String keyForSender) =>
+      utf8.encode([
+        'v1',
+        senderId,
+        recipientId,
+        body,
+        keyForRecipient,
+        keyForSender
+      ].join('|'));
 
   /// A short, human-comparable fingerprint of both people's keys. Two people
   /// see the same number; if it matches when they compare in person, nobody
   /// is in the middle.
   static Future<String> safetyNumber(List<int> a, List<int> b) async {
-    final ordered = [a, b]..sort((x, y) => base64Encode(x).compareTo(base64Encode(y)));
+    final ordered = [a, b]
+      ..sort((x, y) => base64Encode(x).compareTo(base64Encode(y)));
     final hash = await Sha256().hash([...ordered[0], ...ordered[1]]);
     final digits = StringBuffer();
     final bytes = Uint8List.fromList(hash.bytes);

@@ -19,7 +19,6 @@ class AppState extends ChangeNotifier {
 
   Profile? me;
   final Map<String, Profile> profiles = {};
-  List<ContactLink> contacts = [];
   final Map<String, List<ChatMessage>> chats = {};
   final Set<String> keyChanged = {};
   RealtimeChannel? _channel;
@@ -30,34 +29,8 @@ class AppState extends ChangeNotifier {
   // ---------------------------------------------------------------- auth
 
   Future<void> signIn(String username, String password) async {
-    await _db.auth.signInWithPassword(email: Config.emailFor(username), password: password);
-    await bootstrap();
-  }
-
-  Future<void> register({
-    required String inviteCode,
-    required String username,
-    required String displayName,
-    required String password,
-  }) async {
-    final res = await _db.auth.signUp(email: Config.emailFor(username), password: password);
-    final uid = res.user?.id;
-    if (uid == null || res.session == null) {
-      throw const AuthException('가입에 실패했습니다. 관리자에게 문의하세요.');
-    }
-    final pub = await keys.generate(uid);
-    try {
-      await _db.rpc('register_profile', params: {
-        'p_invite_code': inviteCode,
-        'p_username': username,
-        'p_display_name': displayName,
-        'p_dh_public_key': pub.dhPublic,
-        'p_sign_public_key': pub.signPublic,
-      });
-    } catch (e) {
-      await _db.auth.signOut();
-      rethrow;
-    }
+    await _db.auth.signInWithPassword(
+        email: Config.emailFor(username), password: password);
     await bootstrap();
   }
 
@@ -68,17 +41,19 @@ class AppState extends ChangeNotifier {
     if (row == null) throw const AuthException('가입이 완료되지 않은 계정입니다.');
     me = Profile.fromJson(row);
     profiles[uid] = me!;
-    if (!await keys.load(uid)) {
-      // New phone or reinstalled app: the old private key is gone, so make
-      // new keys. Older messages can no longer be decrypted on this device.
+    if (!await keys.load(uid) || !me!.hasKeys) {
+      // First sign-in, new phone or reinstalled app: make new keys. Messages
+      // sent to the old key can no longer be decrypted on this device.
       final pub = await keys.generate(uid);
-      await _db.from('profiles').update(
-          {'dh_public_key': pub.dhPublic, 'sign_public_key': pub.signPublic}).eq('id', uid);
+      await _db.from('profiles').update({
+        'dh_public_key': pub.dhPublic,
+        'sign_public_key': pub.signPublic
+      }).eq('id', uid);
       me = Profile.fromJson(
           (await _db.from('profiles').select().eq('id', uid).single()));
       profiles[uid] = me!;
     }
-    await refreshContacts();
+    await refreshMembers();
     await _loadMessages();
     _subscribe();
     notifyListeners();
@@ -89,64 +64,49 @@ class AppState extends ChangeNotifier {
     _channel = null;
     me = null;
     profiles.clear();
-    contacts = [];
     chats.clear();
     await _db.auth.signOut();
     notifyListeners();
   }
 
-  // ------------------------------------------------------------ contacts
+  // ------------------------------------------------------------- members
 
-  Future<void> refreshContacts() async {
-    final rows = await _db.from('contacts').select();
-    contacts = rows.map(ContactLink.fromJson).toList();
-    final others = contacts.map((c) => c.other(userId!)).toSet();
-    if (others.isNotEmpty) {
-      final ps = await _db.from('profiles').select().inFilter('id', others.toList());
-      for (final p in ps) {
-        final profile = Profile.fromJson(p);
-        profiles[profile.id] = profile;
-      }
+  Future<void> refreshMembers() async {
+    final rows = await _db.from('profiles').select();
+    for (final p in rows) {
+      final profile = Profile.fromJson(p);
+      profiles[profile.id] = profile;
     }
+    if (me != null) me = profiles[me!.id];
     keyChanged.clear();
-    for (final c in accepted) {
-      final p = profiles[c.other(userId!)];
-      if (p != null && !await keys.checkPinned(p.id, p.signPublicKey)) keyChanged.add(p.id);
+    for (final p in members) {
+      if (p.hasKeys && !await keys.checkPinned(p.id, p.signPublicKey!)) {
+        keyChanged.add(p.id);
+      }
     }
     notifyListeners();
   }
 
-  List<ContactLink> get accepted => contacts.where((c) => c.status == 'accepted').toList();
-  List<ContactLink> get incoming =>
-      contacts.where((c) => c.status == 'pending' && c.addressee == userId).toList();
-  List<ContactLink> get outgoing =>
-      contacts.where((c) => c.status == 'pending' && c.requester == userId).toList();
+  /// Everyone in the family except me.
+  List<Profile> get members =>
+      profiles.values.where((p) => p.id != userId).toList();
 
-  Future<void> sendRequest(String friendCode) async {
-    await _db.rpc('send_contact_request', params: {'p_friend_code': friendCode});
-    await refreshContacts();
+  Future<void> rename(String displayName) async {
+    await _db
+        .from('profiles')
+        .update({'display_name': displayName}).eq('id', userId!);
+    await refreshMembers();
   }
-
-  Future<void> respond(int id, bool accept) async {
-    await _db.rpc('respond_contact_request', params: {'p_id': id, 'p_accept': accept});
-    await refreshContacts();
-  }
-
-  Future<void> removeContact(String other) async {
-    await _db.rpc('remove_contact', params: {'p_other': other});
-    await refreshContacts();
-  }
-
-  Future<String> createInvite() async => await _db.rpc('create_invite') as String;
 
   Future<void> trustNewKey(String contactId) async {
-    await keys.repin(contactId, profiles[contactId]!.signPublicKey);
+    await keys.repin(contactId, profiles[contactId]!.signPublicKey!);
     keyChanged.remove(contactId);
     notifyListeners();
   }
 
   Future<String> safetyNumber(String contactId) => E2E.safetyNumber(
-      base64Decode(me!.signPublicKey), base64Decode(profiles[contactId]!.signPublicKey));
+      base64Decode(me!.signPublicKey!),
+      base64Decode(profiles[contactId]!.signPublicKey!));
 
   // ------------------------------------------------------------ messages
 
@@ -168,8 +128,12 @@ class AppState extends ChangeNotifier {
     String text;
     var failed = false;
     try {
-      if (sender == null) throw const E2EException('알 수 없는 사용자');
-      if (keyChanged.contains(sender.id)) throw const E2EException('보안 키가 바뀌었습니다');
+      if (sender == null || !sender.hasKeys) {
+        throw const E2EException('알 수 없는 사용자');
+      }
+      if (keyChanged.contains(sender.id)) {
+        throw const E2EException('보안 키가 바뀌었습니다');
+      }
       text = await E2E.open(
         envelope: Envelope(
           body: r['body'],
@@ -181,7 +145,7 @@ class AppState extends ChangeNotifier {
         recipientId: r['recipient_id'],
         iAmSender: r['sender_id'] == me,
         myDhKeyPair: keys.dh!,
-        senderSignPublic: base64Decode(sender.signPublicKey),
+        senderSignPublic: base64Decode(sender.signPublicKey!),
       );
     } catch (_) {
       text = '🔒 이 기기에서 열 수 없는 메시지입니다';
@@ -192,7 +156,8 @@ class AppState extends ChangeNotifier {
       senderId: r['sender_id'],
       recipientId: r['recipient_id'],
       createdAt: DateTime.parse(r['created_at']).toLocal(),
-      readAt: r['read_at'] == null ? null : DateTime.parse(r['read_at']).toLocal(),
+      readAt:
+          r['read_at'] == null ? null : DateTime.parse(r['read_at']).toLocal(),
       text: text,
       failed: failed,
     );
@@ -211,7 +176,14 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> send(String recipientId, String text) async {
-    final recipient = profiles[recipientId]!;
+    var recipient = profiles[recipientId]!;
+    if (!recipient.hasKeys) {
+      await refreshMembers();
+      recipient = profiles[recipientId]!;
+      if (!recipient.hasKeys) {
+        throw const E2EException('상대방이 아직 앱에 한 번도 로그인하지 않았어요.');
+      }
+    }
     if (keyChanged.contains(recipientId)) {
       throw const E2EException('상대방의 보안 키가 바뀌었습니다. 먼저 확인해 주세요.');
     }
@@ -219,8 +191,8 @@ class AppState extends ChangeNotifier {
       plaintext: text,
       senderId: userId!,
       recipientId: recipientId,
-      recipientDhPublic: base64Decode(recipient.dhPublicKey),
-      senderDhPublic: base64Decode(me!.dhPublicKey),
+      recipientDhPublic: base64Decode(recipient.dhPublicKey!),
+      senderDhPublic: base64Decode(me!.dhPublicKey!),
       signingKeyPair: keys.sign!,
     );
     final row = await _db
@@ -251,7 +223,8 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> markRead(String other) async {
-    final unread = (chats[other] ?? []).any((m) => m.senderId == other && m.readAt == null);
+    final unread = (chats[other] ?? [])
+        .any((m) => m.senderId == other && m.readAt == null);
     if (!unread) return;
     await _db.rpc('mark_read', params: {'p_other': other});
     final now = DateTime.now();
@@ -271,8 +244,9 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  int unreadCount(String other) =>
-      (chats[other] ?? []).where((m) => m.senderId == other && m.readAt == null).length;
+  int unreadCount(String other) => (chats[other] ?? [])
+      .where((m) => m.senderId == other && m.readAt == null)
+      .length;
 
   void _subscribe() {
     _channel?.unsubscribe();
@@ -292,15 +266,17 @@ class AppState extends ChangeNotifier {
               return;
             }
             final r = payload.newRecord;
-            if (!profiles.containsKey(r['sender_id'])) await refreshContacts();
+            if (!(profiles[r['sender_id']]?.hasKeys ?? false)) {
+              await refreshMembers();
+            }
             _add(await _decrypt(r));
           },
         )
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'public',
-          table: 'contacts',
-          callback: (_) => refreshContacts(),
+          table: 'profiles',
+          callback: (_) => refreshMembers(),
         )
         .subscribe();
   }

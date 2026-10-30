@@ -33,9 +33,11 @@ class KeyStore {
     final dhPair = await X25519().newKeyPair();
     final signPair = await Ed25519().newKeyPair();
     await _storage.write(
-        key: '$_dhKey$_scope', value: base64Encode(await dhPair.extractPrivateKeyBytes()));
+        key: '$_dhKey$_scope',
+        value: base64Encode(await dhPair.extractPrivateKeyBytes()));
     await _storage.write(
-        key: '$_signKey$_scope', value: base64Encode(await signPair.extractPrivateKeyBytes()));
+        key: '$_signKey$_scope',
+        value: base64Encode(await signPair.extractPrivateKeyBytes()));
     dh = dhPair;
     sign = signPair;
     return (

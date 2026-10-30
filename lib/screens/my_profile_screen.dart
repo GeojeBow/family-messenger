@@ -1,98 +1,74 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../services/app_state.dart';
 import '../theme.dart';
 import '../widgets/avatar.dart';
 
-class MyProfileScreen extends StatefulWidget {
+class MyProfileScreen extends StatelessWidget {
   const MyProfileScreen({super.key});
 
-  @override
-  State<MyProfileScreen> createState() => _MyProfileScreenState();
-}
-
-class _MyProfileScreenState extends State<MyProfileScreen> {
-  String? _invite;
-  bool _busy = false;
-
-  Future<void> _createInvite() async {
-    setState(() => _busy = true);
+  Future<void> _rename(BuildContext context) async {
+    final state = AppState.instance;
+    final name = TextEditingController(text: state.me!.displayName);
+    final value = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('이름 바꾸기'),
+        content: TextField(
+          controller: name,
+          autofocus: true,
+          maxLength: 30,
+          decoration: const InputDecoration(hintText: '가족에게 보이는 이름'),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, name.text.trim()),
+              child: const Text('저장')),
+        ],
+      ),
+    );
+    if (value == null || value.isEmpty || !context.mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
     try {
-      final code = await AppState.instance.createInvite();
-      setState(() => _invite = code);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('초대 코드를 만들지 못했어요 (열린 초대는 최대 5개)')));
-      }
-    } finally {
-      if (mounted) setState(() => _busy = false);
+      await state.rename(value);
+    } catch (_) {
+      messenger.showSnackBar(const SnackBar(content: Text('이름을 바꾸지 못했어요')));
     }
-  }
-
-  void _copy(String text) {
-    Clipboard.setData(ClipboardData(text: text));
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('복사했어요')));
   }
 
   @override
   Widget build(BuildContext context) {
-    final me = AppState.instance.me!;
-    return Scaffold(
-      appBar: AppBar(title: const Text('내 정보')),
-      body: ListView(
-        padding: const EdgeInsets.all(24),
-        children: [
-          Center(child: Avatar(id: me.id, name: me.displayName, size: 96)),
-          const SizedBox(height: 12),
-          Text(me.displayName,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 32),
-          const Text('내 친구 코드', style: TextStyle(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 4),
-          const Text('이미 가입한 가족이 이 코드로 대화 요청을 보낼 수 있어요. 내가 승인해야 대화가 열립니다.',
-              style: TextStyle(color: AppColors.subtitle)),
-          _CodeBox(code: me.friendCode, onCopy: () => _copy(me.friendCode)),
-          const SizedBox(height: 32),
-          const Text('새 가족 초대', style: TextStyle(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 4),
-          const Text('아직 앱에 가입하지 않은 가족에게 줄 일회용 코드예요. 3일 뒤 만료되며, '
-              '가입하면 나와 자동으로 연결됩니다.',
-              style: TextStyle(color: AppColors.subtitle)),
-          if (_invite != null) _CodeBox(code: _invite!, onCopy: () => _copy(_invite!)),
-          const SizedBox(height: 8),
-          FilledButton.icon(
-            style: FilledButton.styleFrom(backgroundColor: AppColors.accent),
-            onPressed: _busy ? null : _createInvite,
-            icon: const Icon(Icons.card_giftcard),
-            label: const Text('초대 코드 만들기'),
+    final state = AppState.instance;
+    return ListenableBuilder(
+      listenable: state,
+      builder: (context, _) {
+        final me = state.me!;
+        return Scaffold(
+          appBar: AppBar(title: const Text('내 정보')),
+          body: ListView(
+            padding: const EdgeInsets.all(24),
+            children: [
+              Center(child: Avatar(id: me.id, name: me.displayName, size: 96)),
+              const SizedBox(height: 12),
+              Text(me.displayName,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                      fontSize: 22, fontWeight: FontWeight.w600)),
+              Text('@${me.username}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: AppColors.subtitle)),
+              const SizedBox(height: 24),
+              OutlinedButton.icon(
+                onPressed: () => _rename(context),
+                icon: const Icon(Icons.edit_outlined),
+                label: const Text('이름 바꾸기'),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
-}
-
-class _CodeBox extends StatelessWidget {
-  final String code;
-  final VoidCallback onCopy;
-  const _CodeBox({required this.code, required this.onCopy});
-
-  @override
-  Widget build(BuildContext context) => Container(
-        margin: const EdgeInsets.only(top: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-            color: const Color(0xFFF1F2F6), borderRadius: BorderRadius.circular(10)),
-        child: Row(children: [
-          Expanded(
-            child: SelectableText(code,
-                style: const TextStyle(
-                    fontFamily: 'monospace', fontSize: 22, letterSpacing: 3)),
-          ),
-          IconButton(icon: const Icon(Icons.copy), onPressed: onCopy),
-        ]),
-      );
 }

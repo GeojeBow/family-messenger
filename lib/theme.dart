@@ -28,7 +28,8 @@ class AppColors {
 ThemeData buildTheme() {
   final base = ThemeData(
     useMaterial3: false,
-    colorScheme: ColorScheme.fromSeed(seedColor: AppColors.primary, primary: AppColors.primary),
+    colorScheme: ColorScheme.fromSeed(
+        seedColor: AppColors.primary, primary: AppColors.primary),
     scaffoldBackgroundColor: Colors.white,
     pageTransitionsTheme: const PageTransitionsTheme(builders: {
       TargetPlatform.android: CupertinoPageTransitionsBuilder(),

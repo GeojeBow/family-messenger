@@ -6,7 +6,6 @@ import '../services/models.dart';
 import '../theme.dart';
 import '../widgets/avatar.dart';
 import 'chat_screen.dart';
-import 'contacts_screen.dart';
 import 'my_profile_screen.dart';
 
 class ChatListScreen extends StatelessWidget {
@@ -18,8 +17,7 @@ class ChatListScreen extends StatelessWidget {
     return ListenableBuilder(
       listenable: state,
       builder: (context, _) {
-        final me = state.me!;
-        final rows = state.accepted.map((c) => c.other(me.id)).toList()
+        final rows = state.members.map((p) => p.id).toList()
           ..sort((a, b) {
             final la = state.chats[a]?.lastOrNull?.createdAt ?? DateTime(2000);
             final lb = state.chats[b]?.lastOrNull?.createdAt ?? DateTime(2000);
@@ -34,7 +32,7 @@ class ChatListScreen extends StatelessWidget {
                 ? ListView(children: const [
                     SizedBox(height: 160),
                     Center(
-                      child: Text('아직 대화 상대가 없어요.\n오른쪽 아래 버튼으로 가족을 추가하세요.',
+                      child: Text('가족 목록을 불러오지 못했어요.\n아래로 당겨 새로고침해 주세요.',
                           textAlign: TextAlign.center,
                           style: TextStyle(color: AppColors.subtitle)),
                     ),
@@ -43,15 +41,6 @@ class ChatListScreen extends StatelessWidget {
                     itemCount: rows.length,
                     itemBuilder: (context, i) => _ChatTile(peerId: rows[i]),
                   ),
-          ),
-          floatingActionButton: FloatingActionButton(
-            onPressed: () => Navigator.push(
-                context, MaterialPageRoute(builder: (_) => const ContactsScreen())),
-            child: Badge(
-              isLabelVisible: state.incoming.isNotEmpty,
-              label: Text('${state.incoming.length}'),
-              child: const Icon(Icons.edit),
-            ),
           ),
         );
       },
@@ -71,8 +60,8 @@ class _ChatTile extends StatelessWidget {
     final last = state.chats[peerId]?.lastOrNull;
     final unread = state.unreadCount(peerId);
     return InkWell(
-      onTap: () => Navigator.push(
-          context, MaterialPageRoute(builder: (_) => ChatScreen(peerId: peerId))),
+      onTap: () => Navigator.push(context,
+          MaterialPageRoute(builder: (_) => ChatScreen(peerId: peerId))),
       child: Padding(
         padding: const EdgeInsets.only(left: 10),
         child: Row(
@@ -83,7 +72,9 @@ class _ChatTile extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.fromLTRB(0, 12, 12, 12),
                 decoration: const BoxDecoration(
-                    border: Border(bottom: BorderSide(color: AppColors.divider, width: 0.5))),
+                    border: Border(
+                        bottom:
+                            BorderSide(color: AppColors.divider, width: 0.5))),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -91,38 +82,51 @@ class _ChatTile extends StatelessWidget {
                       if (state.keyChanged.contains(peerId))
                         const Padding(
                           padding: EdgeInsets.only(right: 4),
-                          child: Icon(Icons.warning_amber, size: 16, color: Colors.orange),
+                          child: Icon(Icons.warning_amber,
+                              size: 16, color: Colors.orange),
                         ),
                       Expanded(
                         child: Text(p.displayName,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.w600)),
+                            style: const TextStyle(
+                                fontSize: 16.5, fontWeight: FontWeight.w600)),
                       ),
                       if (last != null) ...[
                         if (last.senderId == state.userId)
-                          Icon(last.readAt != null ? Icons.done_all : Icons.done,
-                              size: 16, color: AppColors.unread),
+                          Icon(
+                              last.readAt != null ? Icons.done_all : Icons.done,
+                              size: 16,
+                              color: AppColors.unread),
                         const SizedBox(width: 4),
                         Text(_when(last.createdAt),
-                            style: const TextStyle(fontSize: 13, color: AppColors.subtitle)),
+                            style: const TextStyle(
+                                fontSize: 13, color: AppColors.subtitle)),
                       ],
                     ]),
                     const SizedBox(height: 4),
                     Row(children: [
                       Expanded(
-                        child: Text(last?.text ?? '대화를 시작해 보세요',
+                        child: Text(
+                            last?.text ??
+                                (p.hasKeys
+                                    ? '대화를 시작해 보세요'
+                                    : '아직 앱에 로그인하지 않았어요'),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 15, color: AppColors.subtitle)),
+                            style: const TextStyle(
+                                fontSize: 15, color: AppColors.subtitle)),
                       ),
                       if (unread > 0)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 7, vertical: 2),
                           decoration: BoxDecoration(
-                              color: AppColors.unread, borderRadius: BorderRadius.circular(12)),
+                              color: AppColors.unread,
+                              borderRadius: BorderRadius.circular(12)),
                           child: Text('$unread',
-                              style: const TextStyle(color: Colors.white, fontSize: 13)),
+                              style: const TextStyle(
+                                  color: Colors.white, fontSize: 13)),
                         ),
                     ]),
                   ],
@@ -156,21 +160,16 @@ class _Drawer extends StatelessWidget {
         children: [
           UserAccountsDrawerHeader(
             decoration: const BoxDecoration(color: AppColors.primary),
-            currentAccountPicture: Avatar(id: me.id, name: me.displayName, size: 64),
+            currentAccountPicture:
+                Avatar(id: me.id, name: me.displayName, size: 64),
             accountName: Text(me.displayName),
             accountEmail: Text('@${me.username}'),
           ),
           ListTile(
             leading: const Icon(Icons.person_outline),
-            title: const Text('내 친구 코드 · 초대하기'),
-            onTap: () => Navigator.push(
-                context, MaterialPageRoute(builder: (_) => const MyProfileScreen())),
-          ),
-          ListTile(
-            leading: const Icon(Icons.people_outline),
-            title: const Text('가족 목록 · 요청'),
-            onTap: () => Navigator.push(
-                context, MaterialPageRoute(builder: (_) => const ContactsScreen())),
+            title: const Text('내 정보 · 이름 바꾸기'),
+            onTap: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const MyProfileScreen())),
           ),
           const Divider(),
           ListTile(

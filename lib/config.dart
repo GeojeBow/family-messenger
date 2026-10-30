@@ -9,5 +9,6 @@ class Config {
 
   /// Accounts are username based. Supabase Auth wants an email, so we map the
   /// username onto a fixed placeholder domain. No email is ever sent.
-  static String emailFor(String username) => '${username.toLowerCase()}@users.urikkiri.app';
+  static String emailFor(String username) =>
+      '${username.toLowerCase()}@users.urikkiri.app';
 }

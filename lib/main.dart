@@ -11,7 +11,8 @@ import 'theme.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('ko');
-  await Supabase.initialize(url: Config.supabaseUrl, publishableKey: Config.supabaseKey);
+  await Supabase.initialize(
+      url: Config.supabaseUrl, publishableKey: Config.supabaseKey);
   runApp(const UrikkiriApp());
 }
 
@@ -62,7 +63,8 @@ class _RootState extends State<Root> {
       future: _boot,
       builder: (context, snap) {
         if (snap.connectionState != ConnectionState.done) {
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return const Scaffold(
+              body: Center(child: CircularProgressIndicator()));
         }
         if (snap.hasError || state.me == null) return const AuthScreen();
         return const ChatListScreen();

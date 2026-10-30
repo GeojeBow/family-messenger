@@ -2,32 +2,18 @@ class Profile {
   final String id;
   final String username;
   final String displayName;
-  final String friendCode;
-  final String dhPublicKey;
-  final String signPublicKey;
+  final String? dhPublicKey;
+  final String? signPublicKey;
 
   Profile.fromJson(Map<String, dynamic> j)
       : id = j['id'],
         username = j['username'],
         displayName = j['display_name'],
-        friendCode = j['friend_code'] ?? '',
         dhPublicKey = j['dh_public_key'],
         signPublicKey = j['sign_public_key'];
-}
 
-class ContactLink {
-  final int id;
-  final String requester;
-  final String addressee;
-  final String status;
-
-  ContactLink.fromJson(Map<String, dynamic> j)
-      : id = j['id'],
-        requester = j['requester'],
-        addressee = j['addressee'],
-        status = j['status'];
-
-  String other(String me) => requester == me ? addressee : requester;
+  /// False until this member has signed in on a phone for the first time.
+  bool get hasKeys => dhPublicKey != null && signPublicKey != null;
 }
 
 class ChatMessage {

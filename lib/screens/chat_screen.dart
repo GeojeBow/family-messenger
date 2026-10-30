@@ -73,7 +73,8 @@ class _ChatScreenState extends State<ChatScreen> {
           if (mine)
             ListTile(
               leading: const Icon(Icons.delete_outline, color: Colors.red),
-              title: const Text('모두에게서 삭제', style: TextStyle(color: Colors.red)),
+              title:
+                  const Text('모두에게서 삭제', style: TextStyle(color: Colors.red)),
               onTap: () {
                 Navigator.pop(ctx);
                 state.deleteMessage(m);
@@ -98,8 +99,10 @@ class _ChatScreenState extends State<ChatScreen> {
           appBar: AppBar(
             titleSpacing: 0,
             title: InkWell(
-              onTap: () => Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => ContactInfoScreen(peerId: peer.id))),
+              onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => ContactInfoScreen(peerId: peer.id))),
               child: Row(children: [
                 Avatar(id: peer.id, name: peer.displayName, size: 40),
                 const SizedBox(width: 10),
@@ -120,8 +123,11 @@ class _ChatScreenState extends State<ChatScreen> {
                       '새 휴대폰이 아니라면 직접 확인해 주세요.'),
                   actions: [
                     TextButton(
-                      onPressed: () => Navigator.push(context,
-                          MaterialPageRoute(builder: (_) => ContactInfoScreen(peerId: peer.id))),
+                      onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) =>
+                                  ContactInfoScreen(peerId: peer.id))),
                       child: const Text('확인하기'),
                     ),
                   ],
@@ -134,10 +140,12 @@ class _ChatScreenState extends State<ChatScreen> {
                   itemBuilder: (context, i) {
                     final idx = messages.length - 1 - i;
                     final m = messages[idx];
-                    final next = idx + 1 < messages.length ? messages[idx + 1] : null;
+                    final next =
+                        idx + 1 < messages.length ? messages[idx + 1] : null;
                     final prev = idx > 0 ? messages[idx - 1] : null;
                     final tail = next == null || next.senderId != m.senderId;
-                    final newDay = prev == null || !_sameDay(prev.createdAt, m.createdAt);
+                    final newDay =
+                        prev == null || !_sameDay(prev.createdAt, m.createdAt);
                     return Column(children: [
                       if (newDay) _DayChip(m.createdAt),
                       MessageBubble(
@@ -172,7 +180,8 @@ class _DayChip extends StatelessWidget {
       margin: const EdgeInsets.symmetric(vertical: 8),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-          color: const Color(0x55000000), borderRadius: BorderRadius.circular(12)),
+          color: const Color(0x55000000),
+          borderRadius: BorderRadius.circular(12)),
       child: Text(DateFormat('M월 d일 EEEE', 'ko').format(day),
           style: const TextStyle(color: Colors.white, fontSize: 13)),
     );
@@ -184,7 +193,8 @@ class _Composer extends StatelessWidget {
   final bool sending;
   final VoidCallback onSend;
 
-  const _Composer({required this.controller, required this.sending, required this.onSend});
+  const _Composer(
+      {required this.controller, required this.sending, required this.onSend});
 
   @override
   Widget build(BuildContext context) {
@@ -219,7 +229,8 @@ class _Composer extends StatelessWidget {
                       icon: const Icon(Icons.send, color: AppColors.accent),
                       onPressed: sending ? null : onSend,
                     )
-                  : const SizedBox(key: ValueKey('none'), width: 12, height: 48),
+                  : const SizedBox(
+                      key: ValueKey('none'), width: 12, height: 48),
             ),
           ],
         ),
