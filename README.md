@@ -14,9 +14,14 @@
 2. Authentication → Sign In / Providers → Email에서 **Confirm email**을 끕니다 (아이디 기반 가입이라 메일을 보내지 않습니다).
 3. 관리자가 바로 앱에서 첫 계정을 만듭니다. 첫 계정만 초대 코드 없이 가입할 수 있으므로 가장 먼저 가입해야 합니다.
 
-## 빌드
+## 빌드와 배포
 
 `main`에 push하면 GitHub Actions가 APK를 만들고, `v*` 태그를 push하면 Release에 APK를 올립니다.
+가족용 고정 다운로드 링크: https://github.com/GeojeBow/family-messenger/releases/latest/download/urikkiri.apk
+
+릴리스 서명 키는 저장소에 **암호화된 형태**(`android/app/upload-keystore.jks.enc`)로만 들어 있고,
+암호는 저장소 Secret `KEYSTORE_PASSWORD`입니다. Secret을 처음 넣은 뒤 `main` 빌드가 키를 만들어 커밋합니다.
+이 암호를 잃어버리면 기존 앱 위에 업데이트를 설치할 수 없으니 안전한 곳에 보관하세요.
 
 ## 한계
 
