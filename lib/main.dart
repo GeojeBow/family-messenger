@@ -5,7 +5,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'config.dart';
 import 'screens/auth_screen.dart';
 import 'screens/chat_list_screen.dart';
-import 'screens/lock_screen.dart';
 import 'services/app_state.dart';
 import 'theme.dart';
 
@@ -25,7 +24,7 @@ class UrikkiriApp extends StatelessWidget {
       title: '우리끼리',
       debugShowCheckedModeBanner: false,
       theme: buildTheme(),
-      home: const LockGate(child: Root()),
+      home: const Root(),
     );
   }
 }

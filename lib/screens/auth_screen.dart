@@ -92,7 +92,7 @@ class _AuthScreenState extends State<AuthScreen> {
             if (_error != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
-                child: Text(_error!, style: const TextStyle(color: Colors.red)),
+                child: SelectableText(_error!, style: const TextStyle(color: Colors.red)),
               ),
             const SizedBox(height: 20),
             SizedBox(
